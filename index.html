@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Carrera DSV — Master Data (Online)</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+<style>
+  :root{
+    --asfalto:#0d1322; --panel:#152036; --panel-2:#1c2a47; --linea:#2c3d63;
+    --texto:#eef2fb; --texto-2:#9fb0d0; --amarillo:#ffc400;
+    --equipoA:#4fc3f7; --equipoB:#ff7a45;
+    --correcto:#35d399; --incorrecto:#f87171; --radio:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 500px at 50% -10%, #16223d 0%, transparent 60%), var(--asfalto);
+    color:var(--texto);
+    font-family:"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    overflow-x:hidden;
+  }
+  .display{font-family:"Arial Black","Segoe UI Black","Segoe UI",sans-serif;text-transform:uppercase;letter-spacing:.06em}
+  button{font-family:inherit;border:none;border-radius:12px;cursor:pointer;transition:transform .12s,filter .12s,opacity .2s}
+  button:hover{filter:brightness(1.12)} button:active{transform:scale(.97)}
+  button:focus-visible{outline:3px solid var(--amarillo);outline-offset:2px}
+  button:disabled{opacity:.35;cursor:not-allowed;filter:none}
+  input,select{background:var(--panel-2);border:1px solid var(--linea);color:var(--texto);border-radius:10px;padding:12px 14px;font-size:17px;font-family:inherit}
+  input:focus,select:focus{outline:2px solid var(--amarillo)}
+  .screen{display:none;min-height:100vh;flex-direction:column}
+  .screen.activa{display:flex}
+  .centrada{align-items:center;justify-content:center;gap:22px;padding:26px;text-align:center}
+  .franja{width:min(680px,90vw);height:12px;border-radius:6px;background:repeating-linear-gradient(45deg,var(--amarillo) 0 22px,#111 22px 44px)}
+  .btn-grande{background:var(--amarillo);color:#151004;font-size:clamp(17px,2vw,23px);font-weight:800;padding:15px 40px;letter-spacing:.05em}
+  .btn-sec{background:var(--panel-2);border:1px solid var(--linea);color:var(--texto);font-size:15px;padding:11px 20px}
+  .hint{color:var(--texto-2);font-size:13px;max-width:560px}
+  .tarjeta{background:var(--panel);border:1px solid var(--linea);border-radius:var(--radio);padding:clamp(16px,2.2vw,26px)}
+  .error{color:var(--incorrecto);font-size:14px;min-height:18px}
+
+  /* ------- HOST: carretera ------- */
+  #hJuego{padding:16px clamp(14px,3vw,40px) 22px;gap:14px}
+  .barra-superior{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .ronda{font-size:clamp(15px,1.6vw,20px);color:var(--amarillo)}
+  .placa{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--linea);border-radius:999px;padding:7px 16px;font-size:clamp(14px,1.4vw,17px);font-weight:600}
+  .punto{width:13px;height:13px;border-radius:50%;display:inline-block}
+  .mapa{background:linear-gradient(#182742,#131f38);border:1px solid var(--linea);border-radius:var(--radio);padding:18px 26px 10px}
+  .carretera{position:relative;height:150px}
+  .via{position:absolute;left:0;right:0;height:56px;border-radius:10px;background:#232b3d;box-shadow:inset 0 0 0 1px #303c58}
+  .via::before{content:"";position:absolute;left:12px;right:12px;top:50%;height:3px;margin-top:-1.5px;background:repeating-linear-gradient(90deg,#57648a 0 26px,transparent 26px 52px);opacity:.7}
+  .viaA{top:6px}.viaB{top:84px}
+  .meta-linea{position:absolute;top:0;bottom:0;width:16px;border-radius:4px;background:repeating-conic-gradient(#fff 0 25%,#111 0 50%) 0 0/8px 8px;right:8px}
+  .camion{position:absolute;transform:translate(-10%,-50%);transition:left 1.2s cubic-bezier(.45,1.3,.5,1);width:86px;height:44px;z-index:3}
+  #camionA{top:34px} #camionB{top:112px}
+  .camion svg{width:100%;height:100%;display:block}
+  .camion .nombre-mini{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:.04em;text-shadow:0 1px 3px #000}
+  .paradas{display:flex;justify-content:space-between;margin-top:8px}
+  .parada{flex:1;text-align:center;font-size:clamp(9px,1vw,12px);color:var(--texto-2);text-transform:uppercase;letter-spacing:.06em}
+  .parada::before{content:"";display:block;width:2px;height:8px;background:#40507c;margin:0 auto 3px}
+  .parada.final{color:var(--amarillo);font-weight:800}
+
+  .eyebrow{color:var(--amarillo);font-size:clamp(12px,1.2vw,15px);letter-spacing:.25em;text-transform:uppercase}
+  .pregunta-texto{font-size:clamp(20px,2.6vw,34px);font-weight:800;line-height:1.25;white-space:pre-line;margin-top:10px}
+  .opciones{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;margin-top:16px}
+  .opcion{display:flex;gap:12px;align-items:flex-start;text-align:left;background:var(--panel-2);border:2px solid var(--linea);border-radius:12px;padding:13px 15px;font-size:clamp(15px,1.6vw,21px);line-height:1.3}
+  .opcion .letra{flex:none;width:34px;height:34px;border-radius:9px;background:#0d1322;color:var(--amarillo);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px}
+  .opcion.correcta{border-color:var(--correcto);background:rgba(53,211,153,.14)}
+  .opcion.correcta .letra{background:var(--correcto);color:#06281c}
+  .opcion.apagada{opacity:.38}
+  .tiempo{display:flex;align-items:center;gap:14px;margin-top:14px}
+  .tiempo .num{font-size:clamp(20px,2.2vw,30px);font-weight:900;min-width:60px;text-align:center;color:var(--amarillo)}
+  .tiempo .num.rojo{color:var(--incorrecto);animation:parpadeo 1s steps(2) infinite}
+  @keyframes parpadeo{50%{opacity:.35}}
+  .pista-tiempo{flex:1;height:12px;background:#0d1322;border-radius:6px;overflow:hidden}
+  .pista-tiempo .relleno{height:100%;width:100%;background:var(--amarillo);transition:width .95s linear,background .3s}
+  .pista-tiempo .relleno.rojo{background:var(--incorrecto)}
+  .conteo-resp{display:flex;gap:18px;justify-content:center;margin-top:12px;font-size:clamp(14px,1.5vw,18px);color:var(--texto-2)}
+  .controles{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:center;background:var(--panel);border:1px solid var(--linea);border-radius:var(--radio);padding:14px 18px}
+  .btn-accion{background:var(--amarillo);color:#151004;font-weight:800;font-size:clamp(15px,1.6vw,19px);padding:13px 28px}
+  .aviso{width:100%;text-align:center;color:var(--amarillo);font-weight:800;font-size:15px;min-height:18px}
+
+  /* ------- HOST: lobby ------- */
+  .lobby-grid{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;align-items:stretch}
+  .codigo-caja{display:flex;flex-direction:column;gap:12px;align-items:center}
+  .codigo{font-size:clamp(42px,7vw,84px);letter-spacing:.25em;color:var(--amarillo)}
+  #qr{background:#fff;padding:12px;border-radius:12px}
+  .lista-equipo{min-width:230px;text-align:left}
+  .lista-equipo h3{display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:18px}
+  .lista-equipo ul{list-style:none;display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto}
+  .lista-equipo li{background:var(--panel-2);border-radius:8px;padding:7px 12px;font-size:15px}
+
+  /* ------- JUGADOR ------- */
+  .jugador-wrap{max-width:480px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+  .btn-opcion{display:flex;gap:12px;align-items:center;text-align:left;width:100%;background:var(--panel-2);border:2px solid var(--linea);color:var(--texto);border-radius:14px;padding:16px;font-size:17px;line-height:1.3}
+  .btn-opcion .letra{flex:none;width:38px;height:38px;border-radius:10px;background:#0d1322;color:var(--amarillo);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px}
+  .btn-opcion.elegida{border-color:var(--amarillo);background:rgba(255,196,0,.12)}
+  .btn-opcion.correcta{border-color:var(--correcto);background:rgba(53,211,153,.16)}
+  .btn-opcion.incorrecta{border-color:var(--incorrecto);background:rgba(248,113,113,.14)}
+  .resultado-grande{font-size:clamp(26px,7vw,40px);font-weight:900}
+  .puntos-anim{font-size:clamp(20px,5vw,28px);color:var(--amarillo);font-weight:800}
+  .selector-equipo{display:flex;gap:12px}
+  .chip-equipo{flex:1;padding:16px;border-radius:14px;font-weight:800;font-size:17px;background:var(--panel-2);border:2px solid var(--linea);color:var(--texto)}
+  .chip-equipo.sel.eA{background:var(--equipoA);color:#0d1322;border-color:transparent}
+  .chip-equipo.sel.eB{background:var(--equipoB);color:#0d1322;border-color:transparent}
+
+  /* ------- FINAL ------- */
+  .podio{display:flex;align-items:flex-end;gap:20px;margin-top:8px;justify-content:center}
+  .columna{width:150px;border-radius:12px 12px 0 0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:12px;font-weight:800;animation:crecer 1s ease both;color:#0d1322}
+  @keyframes crecer{from{height:0!important;opacity:0}}
+  .top-jugadores{display:flex;flex-direction:column;gap:8px;min-width:min(420px,90vw)}
+  .top-jugadores .fila{display:flex;justify-content:space-between;background:var(--panel);border:1px solid var(--linea);border-radius:10px;padding:10px 16px;font-size:16px}
+  #confeti{position:fixed;inset:0;pointer-events:none;z-index:50}
+
+  @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  @media (max-width:640px){
+    .camion{width:60px;height:32px}
+    .carretera{height:120px}
+    .via{height:44px}.viaB{top:66px}
+    #camionA{top:28px}#camionB{top:88px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="confeti"></canvas>
+
+<!-- ══════════ PORTADA ══════════ -->
+<section id="portada" class="screen activa centrada">
+  <div class="franja"></div>
+  <h1 class="display" style="font-size:clamp(30px,5vw,58px);line-height:1.05">
+    <span style="display:block;font-size:.4em;color:var(--amarillo);letter-spacing:.35em;margin-bottom:8px">DSV · Global Business Services</span>
+    La Gran Carrera de Master Data
+  </h1>
+  <p class="hint" style="font-size:16px">Cada quien responde desde su teléfono. Los aciertos y la velocidad suman puntos al camión de tu equipo.</p>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+    <button class="btn-grande display" id="btnSoyHost">🖥 Soy el moderador</button>
+    <button class="btn-grande display" id="btnSoyJugador" style="background:var(--equipoA)">📱 Unirme a la carrera</button>
+  </div>
+  <p class="error" id="errConfig"></p>
+</section>
+
+<!-- ══════════ HOST · LOBBY ══════════ -->
+<section id="hLobby" class="screen centrada">
+  <h2 class="display" style="font-size:clamp(24px,3.4vw,42px)">Sala de espera</h2>
+  <p class="hint" style="font-size:17px">Entren desde su teléfono a <strong id="lblUrl" style="color:var(--amarillo)"></strong> con el código:</p>
+  <div class="lobby-grid">
+    <div class="tarjeta codigo-caja">
+      <div class="codigo display" id="lblCodigo">····</div>
+      <div id="qr"></div>
+      <p class="hint">o escanea el QR</p>
+    </div>
+    <div class="tarjeta lista-equipo">
+      <h3><span class="punto" style="background:var(--equipoA)"></span><span id="hNomA2"></span> (<span id="cntA">0</span>)</h3>
+      <ul id="listaA"></ul>
+    </div>
+    <div class="tarjeta lista-equipo">
+      <h3><span class="punto" style="background:var(--equipoB)"></span><span id="hNomB2"></span> (<span id="cntB">0</span>)</h3>
+      <ul id="listaB"></ul>
+    </div>
+  </div>
+  <button class="btn-grande display" id="btnComenzar">🚦 Comenzar carrera</button>
+  <p class="hint">Tip: no cierres ni recargues esta pantalla durante el juego.</p>
+</section>
+
+<!-- ══════════ HOST · JUEGO ══════════ -->
+<section id="hJuego" class="screen">
+  <div class="barra-superior">
+    <div class="ronda display" id="lblRonda">Ronda 1</div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap">
+      <div class="placa"><span class="punto" style="background:var(--equipoA)"></span><span id="marcaA"></span></div>
+      <div class="placa"><span class="punto" style="background:var(--equipoB)"></span><span id="marcaB"></span></div>
+    </div>
+  </div>
+
+  <div class="mapa">
+    <div class="carretera">
+      <div class="via viaA"></div>
+      <div class="via viaB"></div>
+      <div class="meta-linea"></div>
+      <div class="camion" id="camionA"></div>
+      <div class="camion" id="camionB"></div>
+    </div>
+    <div class="paradas" id="paradas"></div>
+  </div>
+
+  <div class="tarjeta" style="flex:1;display:flex;flex-direction:column">
+    <div class="eyebrow display" id="eyebrow">Pregunta 1</div>
+    <div id="zonaPregunta"></div>
+    <div class="tiempo" id="zonaTiempo">
+      <div class="num" id="numTiempo">30</div>
+      <div class="pista-tiempo"><div class="relleno" id="rellenoTiempo"></div></div>
+    </div>
+    <div class="conteo-resp" id="conteoResp"></div>
+  </div>
+
+  <div class="controles" id="controles"></div>
+</section>
+
+<!-- ══════════ HOST · FINAL ══════════ -->
+<section id="hFinal" class="screen centrada">
+  <div class="franja"></div>
+  <h2 class="display" style="font-size:clamp(28px,4.4vw,54px)" id="tituloFinal">🏁 ¡Entrega completada!</h2>
+  <div id="cintaGanador" style="font-size:clamp(22px,3.2vw,40px);padding:14px 34px;border-radius:14px;font-weight:900"></div>
+  <p class="hint" id="detalleFinal" style="font-size:17px"></p>
+  <div class="podio" id="podio"></div>
+  <h3 class="display" style="color:var(--amarillo);letter-spacing:.2em">⭐ Top jugadores</h3>
+  <div class="top-jugadores" id="topJugadores"></div>
+  <button class="btn-grande display" onclick="location.reload()">↺ Nueva partida</button>
+</section>
+
+<!-- ══════════ JUGADOR · UNIRSE ══════════ -->
+<section id="jUnirse" class="screen centrada">
+  <div class="jugador-wrap">
+    <h2 class="display" style="font-size:26px;text-align:center">📱 Únete a la carrera</h2>
+    <div class="tarjeta" style="display:flex;flex-direction:column;gap:14px">
+      <label class="hint">Código de sala</label>
+      <input id="inpCodigo" maxlength="4" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.3em;font-size:26px;text-align:center">
+      <label class="hint">Tu nombre</label>
+      <input id="inpNombre" maxlength="16" placeholder="Ej. Alejandra">
+      <label class="hint">Tu equipo</label>
+      <div class="selector-equipo">
+        <button class="chip-equipo eA" id="selEqA"></button>
+        <button class="chip-equipo eB" id="selEqB"></button>
+      </div>
+      <button class="btn-grande display" id="btnEntrar">Entrar 🚚</button>
+      <p class="error" id="errUnirse"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ JUGADOR · JUEGO ══════════ -->
+<section id="jJuego" class="screen centrada">
+  <div class="jugador-wrap" id="jContenido"></div>
+</section>
+
+<script>
+/* ════════════════════════════════════════════════════════════════
+   ⚙️  CONFIGURACIÓN — PEGA AQUÍ TUS DATOS DE SUPABASE
+   En supabase.com → tu proyecto → Settings → API:
+   · Project URL  → SUPABASE_URL
+   · anon public  → SUPABASE_ANON_KEY
+   No se necesita crear ninguna tabla: solo se usa Realtime.
+   ════════════════════════════════════════════════════════════════ */
+const SUPABASE_URL      = "https://rjgfqnplucmgvpmkawdh.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_WC7Ev_AKlC5o4R5NP6lQfA_QY3ZPHSy";
+
+/* Nombres de los equipos */
+const EQUIPOS = { A: "Equipo Azul", B: "Equipo Naranja" };
+
+/* Puntuación */
+const TIEMPO_PREGUNTA = 30;   // segundos por pregunta
+const PUNTOS_BASE     = 100;  // por respuesta correcta
+const BONUS_VELOCIDAD = 50;   // máximo extra por responder rápido
+const BONUS_PERFECTO  = 25;   // si TODO el equipo acierta la ronda
+
+/* ✏️  PREGUNTAS (correct: 0 = A, 1 = B, 2 = C, 3 = D) */
+const QUESTIONS = [
+  { q: "Master Data se divide en 3 subdepartamentos:",
+    opts: ["CVMD / AMD / FOMD", "CMVD / ADM / FODM", "CVMD / ADM / FODM"], correct: 0 },
+  { q: "MEX HUB solo se encarga de:",
+    opts: ["CVMD / FOMD", "CVMD / AMD", "AMD / FOMD"], correct: 1 },
+  { q: "En Master Data nos encargamos de:\n• Creación de proveedores y clientes\n• Actualización de información\n• Activación o bloqueo de cuentas\n• Creación de staff accounts",
+    opts: ["Verdadero", "Falso"], correct: 0 },
+  { q: "CVMD procesa:",
+    opts: ["60 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls",
+           "50 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls",
+           "40 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls"], correct: 1 },
+  { q: "AMD procesa:",
+    opts: ["200 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)",
+           "240 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)",
+           "250 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)"], correct: 0 },
+  { q: "Objetivos de Customer Care:",
+    opts: ["Brindar el mejor servicio posible, dando respuestas rápidas y buscando que el cliente no requiera rechazar un ticket previamente concluido.",
+           "Brindar el mejor servicio posible, dando respuestas concretas y buscando que el cliente no requiera escalar un ticket previamente concluido.",
+           "Brindar el mejor servicio posible, dando respuestas concretas y buscando que el cliente no requiera rechazar un ticket previamente concluido."], correct: 2 },
+  { q: "SLA — Solicitudes normales:",
+    opts: ["24 hrs", "12 hrs", "6 hrs", "8 hrs"], correct: 1 },
+  { q: "SLA — Solicitudes urgentes:",
+    opts: ["Menos de 8 hrs", "Menos de 4 hrs", "Menos de 6 hrs", "Menos de 2 hrs"], correct: 2 },
+  { q: "Master Data da atención las 24 hrs mediante la metodología:",
+    opts: ["Follow the sun", "Follow the week", "Follow the day"], correct: 0 },
+  { q: "Los GBS que procesan tickets de CVMD / AMD / FOMD:",
+    opts: ["MEX / WAW / MNL / BUH", "MEX / CHI / MNL / BUH", "MEX / WAW / RUS / BUH"], correct: 0 }
+];
+
+const RUTA = ["MEX","QRO","MTY","NLD","HOU","MIA","ATL","LIS","MAD","WAW","BUH","MNL","🏁 Entrega"];
+const META = RUTA.length - 1;
+const LETRAS = ["A","B","C","D"];
+const MAX_RONDA = PUNTOS_BASE + BONUS_VELOCIDAD + BONUS_PERFECTO; // puntaje perfecto por ronda
+
+/* ───────────── Utilidades ───────────── */
+const $ = id => document.getElementById(id);
+function mostrar(idPantalla){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("activa"));
+  $(idPantalla).classList.add("activa");
+}
+function codigoAleatorio(){
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  return Array.from({length:4},()=>abc[Math.floor(Math.random()*abc.length)]).join("");
+}
+const uid = () => Math.random().toString(36).slice(2,10);
+function escapar(t){ const d=document.createElement("div"); d.textContent=t; return d.innerHTML; }
+
+let sb = null, canal = null;
+function conectarSupabase(){
+  if(SUPABASE_URL.startsWith("PEGA") || SUPABASE_ANON_KEY.startsWith("PEGA")){
+    $("errConfig").textContent = "⚠️ Falta pegar la URL y anon key de Supabase en el código (sección CONFIGURACIÓN).";
+    return false;
+  }
+  sb = sb || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+
+/* ───────────── Camión SVG ───────────── */
+function svgCamion(color){
+  return `
+  <svg viewBox="0 0 120 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <rect x="2" y="8" width="78" height="34" rx="5" fill="${color}"/>
+    <text x="41" y="30" text-anchor="middle" font-size="13" font-weight="900" font-family="Arial Black, Arial" fill="#0d1322">DSV</text>
+    <path d="M82 16 h20 l12 12 v14 h-32 z" fill="#dfe7f7"/>
+    <rect x="86" y="20" width="14" height="10" rx="2" fill="#31415f"/>
+    <circle cx="24" cy="46" r="9" fill="#0d1322"/><circle cx="24" cy="46" r="4" fill="#8fa2c9"/>
+    <circle cx="58" cy="46" r="9" fill="#0d1322"/><circle cx="58" cy="46" r="4" fill="#8fa2c9"/>
+    <circle cx="100" cy="46" r="9" fill="#0d1322"/><circle cx="100" cy="46" r="4" fill="#8fa2c9"/>
+  </svg><span class="nombre-mini"></span>`;
+}
+
+/* ═════════════════════════════ HOST ═════════════════════════════ */
+const host = {
+  codigo:"", ronda:0, fase:"lobby",
+  jugadores:{},                        // pid → {nombre, equipo}
+  respuestas:{},                       // ronda → { pid → {opcion, ms} }
+  puntosJugador:{},                    // pid → total
+  puntosEquipo:{A:0, B:0},
+  timerId:null, restante:0
+};
+
+async function iniciarHost(){
+  if(!conectarSupabase()) return;
+  host.codigo = codigoAleatorio();
+  canal = sb.channel("sala-"+host.codigo, {config:{broadcast:{self:false}, presence:{key:"host"}}});
+
+  canal.on("presence", {event:"sync"}, ()=>{
+    const st = canal.presenceState();
+    host.jugadores = {};
+    Object.entries(st).forEach(([key, metas])=>{
+      if(key === "host") return;
+      const m = metas[0];
+      if(m && m.nombre) host.jugadores[key] = {nombre:m.nombre, equipo:m.equipo};
+    });
+    pintarLobby();
+    pintarConteo();
+  });
+
+  canal.on("broadcast", {event:"respuesta"}, ({payload})=>{
+    if(host.fase !== "pregunta" || payload.ronda !== host.ronda) return;
+    const r = host.respuestas[host.ronda] = host.respuestas[host.ronda] || {};
+    if(r[payload.pid]) return;                       // solo la primera respuesta cuenta
+    r[payload.pid] = {opcion:payload.opcion, ms:payload.ms, equipo:payload.equipo, nombre:payload.nombre};
+    pintarConteo();
+    /* si ya respondieron todos los conectados, revela solo */
+    if(Object.keys(r).length >= Object.keys(host.jugadores).length && Object.keys(host.jugadores).length > 0){
+      revelarHost();
+    }
+  });
+
+  canal.on("broadcast", {event:"hola"}, ()=>{ difundirEstado(); });
+
+  canal.subscribe(async status=>{
+    if(status === "SUBSCRIBED"){
+      await canal.track({rol:"host"});
+      $("lblCodigo").textContent = host.codigo;
+      $("lblUrl").textContent = location.host + location.pathname.replace(/index\.html$/,"");
+      $("hNomA2").textContent = EQUIPOS.A;
+      $("hNomB2").textContent = EQUIPOS.B;
+      try{
+        new QRCode($("qr"), {text: location.origin + location.pathname + "?sala=" + host.codigo, width:170, height:170});
+      }catch(e){ $("qr").style.display = "none"; }
+      mostrar("hLobby");
+    }
+  });
+}
+
+function pintarLobby(){
+  const a=[], b=[];
+  Object.values(host.jugadores).forEach(j=> (j.equipo==="A"?a:b).push(j.nombre));
+  $("listaA").innerHTML = a.map(n=>`<li>${escapar(n)}</li>`).join("");
+  $("listaB").innerHTML = b.map(n=>`<li>${escapar(n)}</li>`).join("");
+  $("cntA").textContent = a.length; $("cntB").textContent = b.length;
+}
+
+function difundirEstado(){
+  canal.send({type:"broadcast", event:"estado", payload:{
+    fase: host.fase,
+    ronda: host.ronda,
+    duracion: TIEMPO_PREGUNTA,
+    pregunta: host.fase==="pregunta" ? QUESTIONS[host.ronda] : null,
+    equipos: EQUIPOS
+  }});
+}
+
+$("btnComenzar").onclick = ()=>{
+  if(Object.keys(host.jugadores).length === 0){
+    alert("Aún no se ha unido ningún jugador."); return;
+  }
+  mostrar("hJuego");
+  pintarRuta(); prepararCamiones(); moverCamiones(); pintarMarcador();
+  lanzarPregunta();
+};
+
+function lanzarPregunta(){
+  host.fase = "pregunta";
+  host.respuestas[host.ronda] = {};
+  const p = QUESTIONS[host.ronda];
+  $("lblRonda").textContent = `Ronda ${host.ronda+1} / ${QUESTIONS.length}`;
+  $("eyebrow").textContent  = `Pregunta ${host.ronda+1}`;
+  $("zonaPregunta").innerHTML = `
+    <div class="pregunta-texto">${p.q}</div>
+    <div class="opciones">
+      ${p.opts.map((o,i)=>`<div class="opcion" data-i="${i}"><span class="letra">${LETRAS[i]}</span><span>${o}</span></div>`).join("")}
+    </div>`;
+  $("controles").innerHTML = `<button class="btn-accion display" id="btnRevelar">👁 Revelar ya</button>`;
+  $("btnRevelar").onclick = revelarHost;
+  pintarConteo();
+  iniciarTimerHost();
+  difundirEstado();
+}
+
+function iniciarTimerHost(){
+  clearInterval(host.timerId);
+  host.restante = TIEMPO_PREGUNTA;
+  $("zonaTiempo").style.display = "flex";
+  pintarTimerHost();
+  host.timerId = setInterval(()=>{
+    host.restante--;
+    pintarTimerHost();
+    if(host.restante <= 0) revelarHost();
+  }, 1000);
+}
+function pintarTimerHost(){
+  const n=$("numTiempo"), r=$("rellenoTiempo");
+  n.textContent = Math.max(0, host.restante);
+  r.style.width = (host.restante/TIEMPO_PREGUNTA*100)+"%";
+  const rojo = host.restante<=5;
+  n.classList.toggle("rojo",rojo); r.classList.toggle("rojo",rojo);
+}
+
+function pintarConteo(){
+  if(host.fase!=="pregunta"){ $("conteoResp").innerHTML=""; return; }
+  const r = host.respuestas[host.ronda] || {};
+  const tot = {A:0,B:0}, resp = {A:0,B:0};
+  Object.values(host.jugadores).forEach(j=>tot[j.equipo]++);
+  Object.values(r).forEach(x=>resp[x.equipo]++);
+  $("conteoResp").innerHTML =
+    `<span>🔵 ${EQUIPOS.A}: ${resp.A}/${tot.A} respondieron</span>
+     <span>🟠 ${EQUIPOS.B}: ${resp.B}/${tot.B} respondieron</span>`;
+}
+
+function revelarHost(){
+  if(host.fase !== "pregunta") return;
+  clearInterval(host.timerId);
+  host.fase = "revelada";
+  const p = QUESTIONS[host.ronda];
+  const r = host.respuestas[host.ronda] || {};
+
+  /* puntos individuales */
+  const puntosRonda = {};      // pid → puntos de esta ronda
+  Object.entries(r).forEach(([pid,x])=>{
+    let pts = 0;
+    if(x.opcion === p.correct){
+      const frac = Math.max(0, 1 - x.ms/(TIEMPO_PREGUNTA*1000));
+      pts = PUNTOS_BASE + Math.round(BONUS_VELOCIDAD * frac);
+    }
+    puntosRonda[pid] = pts;
+    host.puntosJugador[pid] = (host.puntosJugador[pid]||0) + pts;
+  });
+
+  /* puntos de equipo = PROMEDIO de sus integrantes conectados (+ bonus perfecto) */
+  const equipoRonda = {A:0,B:0}, perfecto = {A:false,B:false};
+  ["A","B"].forEach(eq=>{
+    const miembros = Object.entries(host.jugadores).filter(([,j])=>j.equipo===eq);
+    if(miembros.length === 0) return;
+    let suma = 0, aciertos = 0;
+    miembros.forEach(([pid])=>{
+      suma += puntosRonda[pid] || 0;
+      if(r[pid] && r[pid].opcion === p.correct) aciertos++;
+    });
+    equipoRonda[eq] = Math.round(suma / miembros.length);
+    if(aciertos === miembros.length){ equipoRonda[eq] += BONUS_PERFECTO; perfecto[eq]=true; }
+    host.puntosEquipo[eq] += equipoRonda[eq];
+  });
+
+  /* pinta en pantalla grande */
+  document.querySelectorAll("#hJuego .opcion").forEach(el=>{
+    const i = Number(el.dataset.i);
+    el.classList.toggle("correcta", i===p.correct);
+    el.classList.toggle("apagada",  i!==p.correct);
+  });
+  moverCamiones(); pintarMarcador();
+  const avisos = [];
+  if(perfecto.A) avisos.push(`🔥 ¡Entrega perfecta de ${EQUIPOS.A}! +${BONUS_PERFECTO}`);
+  if(perfecto.B) avisos.push(`🔥 ¡Entrega perfecta de ${EQUIPOS.B}! +${BONUS_PERFECTO}`);
+  const ultima = host.ronda+1 >= QUESTIONS.length;
+  $("controles").innerHTML = `
+    <div class="aviso">${avisos.join(" · ")||"&nbsp;"}</div>
+    <div style="width:100%;text-align:center;color:var(--texto-2);font-size:15px">
+      +${equipoRonda.A} pts ${EQUIPOS.A} · +${equipoRonda.B} pts ${EQUIPOS.B}
+    </div>
+    <button class="btn-accion display" id="btnSig">${ultima ? "🏁 Ver resultados" : "▶ Siguiente pregunta"}</button>`;
+  $("btnSig").onclick = ()=>{
+    if(ultima) finalHost();
+    else { host.ronda++; lanzarPregunta(); }
+  };
+
+  /* avisa a los teléfonos */
+  canal.send({type:"broadcast", event:"revelado", payload:{
+    ronda: host.ronda,
+    correcta: p.correct,
+    puntosRonda,
+    totalesJugador: host.puntosJugador,
+    puntosEquipo: host.puntosEquipo,
+    ultima
+  }});
+}
+
+function finalHost(){
+  host.fase = "final";
+  const top = Object.entries(host.puntosJugador)
+    .map(([pid,pts])=>({pts, ...(host.jugadores[pid]||{nombre:"(desconectado)",equipo:"A"})}))
+    .sort((a,b)=>b.pts-a.pts).slice(0,5);
+  canal.send({type:"broadcast", event:"final", payload:{
+    puntosEquipo: host.puntosEquipo, equipos: EQUIPOS, top
+  }});
+
+  mostrar("hFinal");
+  const pa = host.puntosEquipo.A, pb = host.puntosEquipo.B;
+  const empate = pa === pb;
+  const gaEq = pa > pb ? "A" : "B";
+  const color = gaEq==="A" ? "var(--equipoA)" : "var(--equipoB)";
+  if(empate){
+    $("tituloFinal").textContent = "😮 ¡Empate!";
+    $("cintaGanador").textContent = `${pa} puntos cada equipo`;
+    $("cintaGanador").style.background = "var(--amarillo)";
+  }else{
+    $("cintaGanador").textContent = `Gana ${EQUIPOS[gaEq]}`;
+    $("cintaGanador").style.background = color;
+  }
+  $("cintaGanador").style.color = "#0d1322";
+  $("detalleFinal").textContent = `${EQUIPOS.A}: ${pa} pts · ${EQUIPOS.B}: ${pb} pts`;
+  const orden = [["A",pa],["B",pb]].sort((x,y)=>y[1]-x[1]);
+  $("podio").innerHTML = orden.map(([eq,pts],i)=>`
+    <div class="columna" style="height:${i===0?170:110}px;background:${eq==="A"?"var(--equipoA)":"var(--equipoB)"}">
+      <div style="font-size:26px">${i===0?"🥇":"🥈"}</div>${EQUIPOS[eq]}<div style="font-size:13px">${pts} pts</div>
+    </div>`).join("");
+  $("topJugadores").innerHTML = top.map((j,i)=>`
+    <div class="fila"><span>${["🥇","🥈","🥉","4️⃣","5️⃣"][i]} ${escapar(j.nombre)} <small style="color:var(--texto-2)">(${EQUIPOS[j.equipo]})</small></span><strong>${j.pts} pts</strong></div>`).join("");
+  lanzarConfeti();
+}
+
+/* Carretera del host: posición = puntos / máximo posible */
+function pintarRuta(){
+  $("paradas").innerHTML = RUTA.map((p,i)=>`<div class="parada ${i===META?"final":""}">${p}</div>`).join("");
+}
+function prepararCamiones(){
+  const css = getComputedStyle(document.documentElement);
+  $("camionA").innerHTML = svgCamion(css.getPropertyValue("--equipoA").trim()||"#4fc3f7");
+  $("camionB").innerHTML = svgCamion(css.getPropertyValue("--equipoB").trim()||"#ff7a45");
+  $("camionA").querySelector(".nombre-mini").textContent = EQUIPOS.A;
+  $("camionB").querySelector(".nombre-mini").textContent = EQUIPOS.B;
+  $("camionA").querySelector(".nombre-mini").style.color = "var(--equipoA)";
+  $("camionB").querySelector(".nombre-mini").style.color = "var(--equipoB)";
+}
+function moverCamiones(){
+  const maxTotal = MAX_RONDA * QUESTIONS.length;
+  ["A","B"].forEach(eq=>{
+    const cam = eq==="A" ? $("camionA") : $("camionB");
+    const pct = Math.min(1, host.puntosEquipo[eq] / maxTotal);
+    cam.style.left = `calc(${(pct*92).toFixed(2)}% + 8px)`;
+  });
+}
+function pintarMarcador(){
+  $("marcaA").textContent = `${EQUIPOS.A}: ${host.puntosEquipo.A} pts`;
+  $("marcaB").textContent = `${EQUIPOS.B}: ${host.puntosEquipo.B} pts`;
+}
+
+/* ═════════════════════════════ JUGADOR ═════════════════════════════ */
+const yo = { pid: uid(), nombre:"", equipo:"A", codigo:"", rondaActual:-1, miRespuesta:null, tRecibida:0, timerId:null };
+
+function prepararUnirse(){
+  $("selEqA").textContent = EQUIPOS.A;
+  $("selEqB").textContent = EQUIPOS.B;
+  $("selEqA").classList.add("sel");
+  $("selEqA").onclick = ()=>{ yo.equipo="A"; $("selEqA").classList.add("sel"); $("selEqB").classList.remove("sel"); };
+  $("selEqB").onclick = ()=>{ yo.equipo="B"; $("selEqB").classList.add("sel"); $("selEqA").classList.remove("sel"); };
+  const params = new URLSearchParams(location.search);
+  if(params.get("sala")) $("inpCodigo").value = params.get("sala").toUpperCase();
+  mostrar("jUnirse");
+}
+
+$("btnEntrar") && ($("btnEntrar").onclick = async ()=>{
+  yo.codigo = $("inpCodigo").value.trim().toUpperCase();
+  yo.nombre = $("inpNombre").value.trim();
+  if(yo.codigo.length !== 4){ $("errUnirse").textContent="El código debe tener 4 letras."; return; }
+  if(!yo.nombre){ $("errUnirse").textContent="Escribe tu nombre."; return; }
+  if(!conectarSupabase()){ $("errUnirse").textContent="Falta configurar Supabase en el código."; return; }
+
+  canal = sb.channel("sala-"+yo.codigo, {config:{broadcast:{self:false}, presence:{key:yo.pid}}});
+  canal.on("broadcast", {event:"estado"},   ({payload})=>estadoJugador(payload));
+  canal.on("broadcast", {event:"revelado"}, ({payload})=>reveladoJugador(payload));
+  canal.on("broadcast", {event:"final"},    ({payload})=>finalJugador(payload));
+  canal.subscribe(async status=>{
+    if(status === "SUBSCRIBED"){
+      await canal.track({nombre:yo.nombre, equipo:yo.equipo});
+      canal.send({type:"broadcast", event:"hola", payload:{pid:yo.pid}});
+      mostrar("jJuego");
+      $("jContenido").innerHTML = `
+        <div class="tarjeta" style="text-align:center">
+          <div style="font-size:44px">🚦</div>
+          <h3 style="margin:10px 0 6px">¡Dentro, ${escapar(yo.nombre)}!</h3>
+          <p class="hint">Estás en ${EQUIPOS[yo.equipo]}. Espera a que el moderador arranque la carrera…</p>
+        </div>`;
+    }
+    if(status === "CHANNEL_ERROR"){ $("errUnirse").textContent = "No se pudo conectar. Revisa el código o el internet."; }
+  });
+});
+
+function estadoJugador(p){
+  if(p.fase !== "pregunta" || !p.pregunta) return;
+  if(p.ronda === yo.rondaActual) return;      // ya la tengo en pantalla
+  yo.rondaActual = p.ronda;
+  yo.miRespuesta = null;
+  yo.tRecibida = Date.now();
+  const preg = p.pregunta;
+  let restante = p.duracion;
+
+  $("jContenido").innerHTML = `
+    <div class="tarjeta">
+      <div class="eyebrow display">Pregunta ${p.ronda+1}</div>
+      <div style="font-weight:800;font-size:18px;line-height:1.3;white-space:pre-line;margin-top:8px">${preg.q}</div>
+    </div>
+    <div class="tiempo"><div class="num" id="jNum">${restante}</div>
+      <div class="pista-tiempo"><div class="relleno" id="jRelleno"></div></div></div>
+    <div style="display:flex;flex-direction:column;gap:10px" id="jOpciones">
+      ${preg.opts.map((o,i)=>`<button class="btn-opcion" data-i="${i}"><span class="letra">${LETRAS[i]}</span><span>${o}</span></button>`).join("")}
+    </div>
+    <p class="hint" style="text-align:center" id="jEstadoResp"></p>`;
+
+  document.querySelectorAll("#jOpciones .btn-opcion").forEach(b=>{
+    b.onclick = ()=>{
+      if(yo.miRespuesta !== null) return;
+      yo.miRespuesta = Number(b.dataset.i);
+      b.classList.add("elegida");
+      document.querySelectorAll("#jOpciones .btn-opcion").forEach(x=>x.disabled = true);
+      $("jEstadoResp").textContent = "✅ Respuesta enviada. Esperando a los demás…";
+      canal.send({type:"broadcast", event:"respuesta", payload:{
+        pid:yo.pid, nombre:yo.nombre, equipo:yo.equipo,
+        ronda:p.ronda, opcion:yo.miRespuesta, ms: Date.now()-yo.tRecibida
+      }});
+      if(navigator.vibrate) navigator.vibrate(40);
+    };
+  });
+
+  clearInterval(yo.timerId);
+  yo.timerId = setInterval(()=>{
+    restante--;
+    const n=$("jNum"), r=$("jRelleno");
+    if(!n){ clearInterval(yo.timerId); return; }
+    n.textContent = Math.max(0,restante);
+    r.style.width = (restante/p.duracion*100)+"%";
+    if(restante<=5){ n.classList.add("rojo"); r.classList.add("rojo"); }
+    if(restante<=0){
+      clearInterval(yo.timerId);
+      document.querySelectorAll("#jOpciones .btn-opcion").forEach(x=>x.disabled=true);
+      if(yo.miRespuesta===null) $("jEstadoResp").textContent = "⌛ Se acabó el tiempo.";
+    }
+  },1000);
+}
+
+function reveladoJugador(p){
+  if(p.ronda !== yo.rondaActual) return;
+  clearInterval(yo.timerId);
+  const acerte = yo.miRespuesta === p.correcta;
+  const misPts = p.puntosRonda[yo.pid] || 0;
+  const misTot = p.totalesJugador[yo.pid] || 0;
+  document.querySelectorAll("#jOpciones .btn-opcion").forEach(b=>{
+    const i = Number(b.dataset.i);
+    if(i === p.correcta) b.classList.add("correcta");
+    else if(i === yo.miRespuesta) b.classList.add("incorrecta");
+  });
+  const est = $("jEstadoResp");
+  if(est){
+    est.innerHTML = `
+      <span class="resultado-grande" style="color:${acerte?"var(--correcto)":"var(--incorrecto)"}">${acerte?"✅ ¡Correcto!":"❌ Incorrecto"}</span><br>
+      <span class="puntos-anim">+${misPts} pts</span><br>
+      <span class="hint">Tu total: ${misTot} pts · ${EQUIPOS.A}: ${p.puntosEquipo.A} · ${EQUIPOS.B}: ${p.puntosEquipo.B}</span>`;
+  }
+  if(navigator.vibrate) navigator.vibrate(acerte?[60,40,60]:200);
+}
+
+function finalJugador(p){
+  const pa=p.puntosEquipo.A, pb=p.puntosEquipo.B;
+  const miEquipoGano = (yo.equipo==="A" && pa>pb) || (yo.equipo==="B" && pb>pa);
+  const miPos = p.top.findIndex(j=>j.nombre===yo.nombre);
+  $("jContenido").innerHTML = `
+    <div class="tarjeta" style="text-align:center;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:52px">${pa===pb ? "🤝" : miEquipoGano ? "🏆" : "🚚"}</div>
+      <h3 style="font-size:22px">${pa===pb ? "¡Empate!" : miEquipoGano ? "¡Tu equipo ganó!" : "Buen intento, la próxima es tuya"}</h3>
+      <p class="hint">${p.equipos.A}: ${pa} pts · ${p.equipos.B}: ${pb} pts</p>
+      ${miPos>=0 ? `<p style="color:var(--amarillo);font-weight:800">⭐ Quedaste #${miPos+1} del top general</p>` : ""}
+      <p class="hint">Mira la pantalla grande para el podio 👀</p>
+    </div>`;
+  if(miEquipoGano) lanzarConfeti();
+}
+
+/* ───────────── Confeti ───────────── */
+function lanzarConfeti(){
+  if(window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const cv=$("confeti"), ctx=cv.getContext("2d");
+  cv.width=innerWidth; cv.height=innerHeight;
+  const colores=["#ffc400","#4fc3f7","#ff7a45","#35d399","#ffffff"];
+  const piezas=Array.from({length:140},()=>({
+    x:Math.random()*cv.width, y:-20-Math.random()*cv.height*.5,
+    w:6+Math.random()*7, h:10+Math.random()*8,
+    vy:2+Math.random()*3.5, vx:-1.5+Math.random()*3,
+    rot:Math.random()*Math.PI, vr:-.1+Math.random()*.2,
+    c:colores[Math.floor(Math.random()*colores.length)]
+  }));
+  let n=0;
+  (function paso(){
+    ctx.clearRect(0,0,cv.width,cv.height);
+    piezas.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.rot+=p.vr;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);
+      ctx.fillStyle=p.c;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();});
+    if(++n<320) requestAnimationFrame(paso); else ctx.clearRect(0,0,cv.width,cv.height);
+  })();
+}
+
+/* ───────────── Arranque ───────────── */
+$("btnSoyHost").onclick    = iniciarHost;
+$("btnSoyJugador").onclick = prepararUnirse;
+/* Si llegan con ?sala=XXXX (QR), van directo a unirse */
+if(new URLSearchParams(location.search).get("sala")) prepararUnirse();
+</script>
+</body>
+</html>
