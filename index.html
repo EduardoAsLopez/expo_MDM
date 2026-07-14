@@ -139,6 +139,18 @@
   <p class="error" id="errConfig"></p>
 </section>
 
+  <!-- ══════════ CLAVE DE MODERADOR ══════════ -->
+<section id="pClave" class="screen centrada">
+  <div class="tarjeta" style="display:flex;flex-direction:column;gap:14px;max-width:420px;width:100%">
+    <h2 class="display" style="font-size:22px;text-align:center">🔒 Zona de moderador</h2>
+    <p class="hint" style="text-align:center">Identifícate para tomar el volante.</p>
+    <input id="inpClave" type="password" placeholder="Contraseña" style="text-align:center">
+    <button class="btn-grande display" id="btnValidarClave">Entrar</button>
+    <button class="btn-sec" onclick="mostrar('portada')">← Volver</button>
+    <p class="error" id="errClave" style="text-align:center"></p>
+  </div>
+</section>
+
 <!-- ══════════ HOST · LOBBY ══════════ -->
 <section id="hLobby" class="screen centrada">
   <h2 class="display" style="font-size:clamp(24px,3.4vw,42px)">Sala de espera</h2>
@@ -736,7 +748,22 @@ function lanzarConfeti(){
 }
 
 /* ───────────── Arranque ───────────── */
-$("btnSoyHost").onclick    = iniciarHost;
+const CLAVE_MODERADOR = "EduardoElMejor123";
+const BURLAS = [
+  "❌ Acceso denegado. Perdedor
+  "❌ Sigue participando 🙃",
+  "❌ Pista: empieza con 'Eduardo' y termina en decepción para ti."
+];
+let intentosClave = 0;
+$("btnSoyHost").onclick = ()=>{
+  $("inpClave").value = ""; $("errClave").textContent = "";
+  mostrar("pClave"); $("inpClave").focus();
+};
+$("btnValidarClave").onclick = ()=>{
+  if($("inpClave").value === CLAVE_MODERADOR) iniciarHost();
+  else $("errClave").textContent = BURLAS[intentosClave++ % BURLAS.length];
+};
+$("inpClave").addEventListener("keydown", e=>{ if(e.key==="Enter") $("btnValidarClave").click(); });
 $("btnSoyJugador").onclick = prepararUnirse;
 /* Si llegan con ?sala=XXXX (QR), van directo a unirse */
 if(new URLSearchParams(location.search).get("sala")) prepararUnirse();
