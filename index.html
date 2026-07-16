@@ -54,6 +54,9 @@
   #camionA{top:34px} #camionB{top:112px}
   .camion svg{width:100%;height:100%;display:block}
   .camion .nombre-mini{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;white-space:nowrap;letter-spacing:.04em;text-shadow:0 1px 3px #000}
+  .camion .fuego{position:absolute;right:97%;top:55%;transform:translateY(-50%);font-size:24px;opacity:0;pointer-events:none;transition:opacity .3s}
+  .camion.turbo .fuego{opacity:1;animation:llama .5s ease-in-out infinite alternate}
+  @keyframes llama{from{transform:translateY(-50%) scale(1)}to{transform:translateY(-50%) scale(1.4,1.1)}}
   .paradas{display:flex;justify-content:space-between;margin-top:8px}
   .parada{flex:1;text-align:center;font-size:clamp(9px,1vw,12px);color:var(--texto-2);text-transform:uppercase;letter-spacing:.06em}
   .parada::before{content:"";display:block;width:2px;height:8px;background:#40507c;margin:0 auto 3px}
@@ -139,7 +142,7 @@
   <p class="error" id="errConfig"></p>
 </section>
 
-  <!-- ══════════ CLAVE DE MODERADOR ══════════ -->
+<!-- ══════════ CLAVE DE MODERADOR ══════════ -->
 <section id="pClave" class="screen centrada">
   <div class="tarjeta" style="display:flex;flex-direction:column;gap:14px;max-width:420px;width:100%">
     <h2 class="display" style="font-size:22px;text-align:center">🔒 Zona de moderador</h2>
@@ -228,7 +231,7 @@
       <label class="hint">Código de sala</label>
       <input id="inpCodigo" maxlength="4" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:.3em;font-size:26px;text-align:center">
       <label class="hint">Tu nombre</label>
-      <input id="inpNombre" maxlength="16" placeholder="Ej. Alejandra">
+      <input id="inpNombre" maxlength="16">
       <label class="hint">Tu equipo</label>
       <div class="selector-equipo">
         <button class="chip-equipo eA" id="selEqA"></button>
@@ -265,40 +268,43 @@ const PUNTOS_BASE     = 100;  // por respuesta correcta
 const BONUS_VELOCIDAD = 50;   // máximo extra por responder rápido
 const BONUS_PERFECTO  = 25;   // si TODO el equipo acierta la ronda
 
-/* ✏️  PREGUNTAS (correct: 0 = A, 1 = B, 2 = C, 3 = D) */
+/* ✏️  PREGUNTAS (las respuestas van codificadas más abajo) */
 const QUESTIONS = [
   { q: "Master Data se divide en 3 subdepartamentos:",
-    opts: ["CVMD / AMD / FOMD", "CMVD / ADM / FODM", "CVMD / ADM / FODM"], correct: 0 },
+    opts: ["CVMD / AMD / FOMD", "CMVD / ADM / FODM", "CVMD / ADM / FODM"] },
   { q: "MEX HUB solo se encarga de:",
-    opts: ["CVMD / FOMD", "CVMD / AMD", "AMD / FOMD"], correct: 1 },
+    opts: ["CVMD / FOMD", "CVMD / AMD", "AMD / FOMD"] },
   { q: "En Master Data nos encargamos de:\n• Creación de proveedores y clientes\n• Actualización de información\n• Activación o bloqueo de cuentas\n• Creación de staff accounts",
-    opts: ["Verdadero", "Falso"], correct: 0 },
+    opts: ["Verdadero", "Falso"] },
   { q: "CVMD procesa:",
     opts: ["60 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls",
            "50 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls",
-           "40 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls"], correct: 1 },
+           "40 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls"] },
   { q: "AMD procesa:",
     opts: ["200 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)",
            "240 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)",
-           "250 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)"], correct: 0 },
+           "250 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)"] },
   { q: "Objetivos de Customer Care:",
     opts: ["Brindar el mejor servicio posible, dando respuestas rápidas y buscando que el cliente no requiera rechazar un ticket previamente concluido.",
            "Brindar el mejor servicio posible, dando respuestas concretas y buscando que el cliente no requiera escalar un ticket previamente concluido.",
-           "Brindar el mejor servicio posible, dando respuestas concretas y buscando que el cliente no requiera rechazar un ticket previamente concluido."], correct: 2 },
+           "Brindar el mejor servicio posible, dando respuestas concretas y buscando que el cliente no requiera rechazar un ticket previamente concluido."] },
   { q: "SLA — Solicitudes normales:",
-    opts: ["24 hrs", "12 hrs", "6 hrs", "8 hrs"], correct: 1 },
+    opts: ["24 hrs", "12 hrs", "6 hrs", "8 hrs"] },
   { q: "SLA — Solicitudes urgentes:",
-    opts: ["Menos de 8 hrs", "Menos de 4 hrs", "Menos de 6 hrs", "Menos de 2 hrs"], correct: 2 },
+    opts: ["Menos de 8 hrs", "Menos de 4 hrs", "Menos de 6 hrs", "Menos de 2 hrs"] },
   { q: "Master Data da atención las 24 hrs mediante la metodología:",
-    opts: ["Follow the sun", "Follow the week", "Follow the day"], correct: 0 },
+    opts: ["Follow the sun", "Follow the week", "Follow the day"] },
   { q: "Los GBS que procesan tickets de CVMD / AMD / FOMD:",
-    opts: ["MEX / WAW / MNL / BUH", "MEX / CHI / MNL / BUH", "MEX / WAW / RUS / BUH"], correct: 0 }
+    opts: ["MEX / WAW / MNL / BUH", "MEX / CHI / MNL / BUH", "MEX / WAW / RUS / BUH"] }
 ];
 
 const RUTA = ["MEX","QRO","MTY","NLD","HOU","MIA","ATL","LIS","MAD","WAW","BUH","MNL","🏁 Entrega"];
 const META = RUTA.length - 1;
 const LETRAS = ["A","B","C","D"];
-const MAX_RONDA = PUNTOS_BASE + BONUS_VELOCIDAD + BONUS_PERFECTO; // puntaje perfecto por ronda
+const BONUS_RACHA = 30;       // por ronda ganada con racha activa (2+ rondas seguidas con mayoría de aciertos)
+
+/* Respuestas codificadas — para regenerar: btoa("0,1,0,...") */
+const RESPUESTAS = atob("MCwxLDAsMSwwLDIsMSwyLDAsMA==").split(",").map(Number);
 
 /* ───────────── Utilidades ───────────── */
 const $ = id => document.getElementById(id);
@@ -334,7 +340,7 @@ function svgCamion(color){
     <circle cx="24" cy="46" r="9" fill="#0d1322"/><circle cx="24" cy="46" r="4" fill="#8fa2c9"/>
     <circle cx="58" cy="46" r="9" fill="#0d1322"/><circle cx="58" cy="46" r="4" fill="#8fa2c9"/>
     <circle cx="100" cy="46" r="9" fill="#0d1322"/><circle cx="100" cy="46" r="4" fill="#8fa2c9"/>
-  </svg><span class="nombre-mini"></span>`;
+  </svg><span class="fuego">🔥</span><span class="nombre-mini"></span>`;
 }
 
 /* ═════════════════════════════ HOST ═════════════════════════════ */
@@ -344,6 +350,7 @@ const host = {
   respuestas:{},                       // ronda → { pid → {opcion, ms} }
   puntosJugador:{},                    // pid → total
   puntosEquipo:{A:0, B:0},
+  racha:{A:0, B:0},
   timerId:null, restante:0
 };
 
@@ -472,7 +479,7 @@ function revelarHost(){
   if(host.fase !== "pregunta") return;
   clearInterval(host.timerId);
   host.fase = "revelada";
-  const p = QUESTIONS[host.ronda];
+  const p = {...QUESTIONS[host.ronda], correct: RESPUESTAS[host.ronda]};
   const r = host.respuestas[host.ronda] || {};
 
   /* puntos individuales */
@@ -499,6 +506,10 @@ function revelarHost(){
     });
     equipoRonda[eq] = Math.round(suma / miembros.length);
     if(aciertos === miembros.length){ equipoRonda[eq] += BONUS_PERFECTO; perfecto[eq]=true; }
+    /* racha: mayoría del equipo acertó esta ronda */
+    if(aciertos > miembros.length/2) host.racha[eq]++;
+    else host.racha[eq] = 0;
+    if(host.racha[eq] >= 2) equipoRonda[eq] += BONUS_RACHA;
     host.puntosEquipo[eq] += equipoRonda[eq];
   });
 
@@ -509,9 +520,13 @@ function revelarHost(){
     el.classList.toggle("apagada",  i!==p.correct);
   });
   moverCamiones(); pintarMarcador();
+  $("camionA").classList.toggle("turbo", host.racha.A >= 2);
+  $("camionB").classList.toggle("turbo", host.racha.B >= 2);
   const avisos = [];
-  if(perfecto.A) avisos.push(`🔥 ¡Entrega perfecta de ${EQUIPOS.A}! +${BONUS_PERFECTO}`);
-  if(perfecto.B) avisos.push(`🔥 ¡Entrega perfecta de ${EQUIPOS.B}! +${BONUS_PERFECTO}`);
+  if(perfecto.A) avisos.push(`⭐ ¡Entrega perfecta de ${EQUIPOS.A}! +${BONUS_PERFECTO}`);
+  if(perfecto.B) avisos.push(`⭐ ¡Entrega perfecta de ${EQUIPOS.B}! +${BONUS_PERFECTO}`);
+  if(host.racha.A >= 2) avisos.push(`🔥 ¡${EQUIPOS.A} lleva racha de ${host.racha.A}! +${BONUS_RACHA}`);
+  if(host.racha.B >= 2) avisos.push(`🔥 ¡${EQUIPOS.B} lleva racha de ${host.racha.B}! +${BONUS_RACHA}`);
   const ultima = host.ronda+1 >= QUESTIONS.length;
   $("controles").innerHTML = `
     <div class="aviso">${avisos.join(" · ")||"&nbsp;"}</div>
@@ -583,7 +598,8 @@ function prepararCamiones(){
   $("camionB").querySelector(".nombre-mini").style.color = "var(--equipoB)";
 }
 function moverCamiones(){
-  const maxTotal = MAX_RONDA * QUESTIONS.length;
+  /* máximo alcanzable sin contar velocidad: así un equipo con puros aciertos SÍ llega a la meta */
+  const maxTotal = (PUNTOS_BASE + BONUS_PERFECTO) * QUESTIONS.length;
   ["A","B"].forEach(eq=>{
     const cam = eq==="A" ? $("camionA") : $("camionB");
     const pct = Math.min(1, host.puntosEquipo[eq] / maxTotal);
@@ -748,7 +764,7 @@ function lanzarConfeti(){
 }
 
 /* ───────────── Arranque ───────────── */
-const CLAVE_MODERADOR = "EduardoElMejor123";
+const CLAVE_MODERADOR = atob("RWR1YXJkb0VsTWVqb3IxMjM=");
 const BURLAS = [
   "❌ Acceso denegado. Perdedor",
   "❌ Sigue participando 🙃",
