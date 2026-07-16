@@ -276,14 +276,14 @@ const QUESTIONS = [
     opts: ["CVMD / FOMD", "CVMD / AMD", "AMD / FOMD"] },
   { q: "En Master Data nos encargamos de:\n• Creación de proveedores y clientes\n• Actualización de información\n• Activación o bloqueo de cuentas\n• Creación de staff accounts",
     opts: ["Verdadero", "Falso"] },
-  { q: "CVMD procesa:",
-    opts: ["60 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls",
-           "50 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls",
-           "40 tickets diarios por persona (urgentes/normales) + casos especiales + operational calls"] },
-  { q: "AMD procesa:",
-    opts: ["200 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)",
-           "240 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)",
-           "250 direcciones diarias por persona + Booking urgent address + No Go queries (Ex Schenker Process)"] },
+  { q: "¿Qué significa \"Customer Care\"?",
+    opts: ["Abrazar al cliente cuando tuvo un mal día.",
+           "Dar un buen servicio al cliente, con respuestas concretas, evitando el rechazo de tickets.",
+           "Dar un buen servicio al cliente, socializando con él, para que tenga una jornada provechosa."] },
+  { q: "¿Qué significa CVMD y AMD?",
+    opts: ["Customer Validation Master Directory / Automated Master Directory",
+           "Client Vendor Management Division / Account Management Division",
+           "Customer Vendor Master Data / Address Master Data"] },
   { q: "Objetivos de Customer Care:",
     opts: ["Brindar el mejor servicio posible, dando respuestas rápidas y buscando que el cliente no requiera rechazar un ticket previamente concluido.",
            "Brindar el mejor servicio posible, dando respuestas concretas y buscando que el cliente no requiera escalar un ticket previamente concluido.",
@@ -304,7 +304,7 @@ const LETRAS = ["A","B","C","D"];
 const BONUS_RACHA = 30;       // por ronda ganada con racha activa (2+ rondas seguidas con mayoría de aciertos)
 
 /* Respuestas codificadas — para regenerar: btoa("0,1,0,...") */
-const RESPUESTAS = atob("MCwxLDAsMSwwLDIsMSwyLDAsMA==").split(",").map(Number);
+const RESPUESTAS = atob("MCwxLDAsMSwyLDIsMSwyLDAsMA==").split(",").map(Number);
 
 /* ───────────── Utilidades ───────────── */
 const $ = id => document.getElementById(id);
